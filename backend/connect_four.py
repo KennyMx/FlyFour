@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from functools import lru_cache
 import random
+import zlib
+from typing import Literal
 
 import numpy as np
 
@@ -29,50 +31,29 @@ def drop(board: np.ndarray, column: int, player: int) -> np.ndarray | None:
     return None
 
 
+# All 69 four-cell windows, computed once rather than rebuilt at every node.
+WINDOW_INDICES = np.asarray([
+    [(row + dr * offset) * COLUMNS + column + dc * offset for offset in range(4)]
+    for row in range(ROWS)
+    for column in range(COLUMNS)
+    for dr, dc in ((0, 1), (1, 0), (1, 1), (1, -1))
+    if 0 <= row + 3 * dr < ROWS and 0 <= column + 3 * dc < COLUMNS
+])
+
+
 def winner(board: np.ndarray, player: int) -> bool:
-    for row in range(ROWS):
-        for column in range(COLUMNS):
-            for row_step, column_step in ((0, 1), (1, 0), (1, 1), (1, -1)):
-                if all(
-                    0 <= row + row_step * offset < ROWS
-                    and 0 <= column + column_step * offset < COLUMNS
-                    and board[row + row_step * offset, column + column_step * offset] == player
-                    for offset in range(4)
-                ):
-                    return True
-    return False
-
-
-def _windows(board: np.ndarray):
-    for row in range(ROWS):
-        for column in range(COLUMNS - 3):
-            yield board[row, column : column + 4]
-    for row in range(ROWS - 3):
-        for column in range(COLUMNS):
-            yield board[row : row + 4, column]
-    for row in range(ROWS - 3):
-        for column in range(COLUMNS - 3):
-            yield np.array([board[row + offset, column + offset] for offset in range(4)])
-            yield np.array([board[row + 3 - offset, column + offset] for offset in range(4)])
+    return bool(np.any(np.all(board.reshape(-1)[WINDOW_INDICES] == player, axis=1)))
 
 
 def evaluate(board: np.ndarray) -> float:
-    score = 5 * np.count_nonzero(board[:, 3] == -1)
-    score -= 5 * np.count_nonzero(board[:, 3] == 1)
-    for group in _windows(board):
-        fly = np.count_nonzero(group == -1)
-        human = np.count_nonzero(group == 1)
-        empty = 4 - fly - human
-        if fly and human:
-            continue
-        if fly == 3 and empty == 1:
-            score += 120
-        elif human == 3 and empty == 1:
-            score -= 145
-        elif fly == 2 and empty == 2:
-            score += 14
-        elif human == 2 and empty == 2:
-            score -= 18
+    groups = board.reshape(-1)[WINDOW_INDICES]
+    fly = np.count_nonzero(groups == -1, axis=1)
+    human = np.count_nonzero(groups == 1, axis=1)
+    score = 5 * (np.count_nonzero(board[:, 3] == -1) - np.count_nonzero(board[:, 3] == 1))
+    score += 120 * np.count_nonzero((fly == 3) & (human == 0))
+    score -= 145 * np.count_nonzero((human == 3) & (fly == 0))
+    score += 14 * np.count_nonzero((fly == 2) & (human == 0))
+    score -= 18 * np.count_nonzero((human == 2) & (fly == 0))
     return float(score)
 
 
@@ -129,8 +110,21 @@ def expert_target(board: np.ndarray, depth: int = 4) -> np.ndarray:
     return scores
 
 
-def training_positions(count: int, seed: int = 404) -> list[np.ndarray]:
+def position_split(board: np.ndarray) -> Literal["train", "validation"]:
+    """Keep a board and its reflection in the same seed-independent partition."""
+    canonical = min(
+        np.asarray(board, dtype=np.int8).tobytes(),
+        np.asarray(board[:, ::-1], dtype=np.int8).tobytes(),
+    )
+    return "validation" if zlib.crc32(canonical) % 5 == 0 else "train"
+
+
+def training_positions(
+    count: int, seed: int = 404, *, split: Literal["train", "validation"] | None = None
+) -> list[np.ndarray]:
     """Generate varied, legal positions where it is the fly's turn."""
+    if split not in (None, "train", "validation"):
+        raise ValueError("split must be train or validation")
     rng = random.Random(seed)
     positions: list[np.ndarray] = []
     seen: set[bytes] = set()
@@ -151,7 +145,12 @@ def training_positions(count: int, seed: int = 404) -> list[np.ndarray]:
                 break
             board = next_board
         key = board.tobytes()
-        if valid and key not in seen and legal_columns(board):
+        if (
+            valid
+            and key not in seen
+            and legal_columns(board)
+            and (split is None or position_split(board) == split)
+        ):
             seen.add(key)
             positions.append(board)
     return positions

@@ -46,11 +46,30 @@ npm run brain:train
 
 Model metadata records the training size, validation agreement, population, simulation steps, package version, and timestamp.
 
-The included model was evaluated on 384 held-out depth-four positions:
+The included model was evaluated on 384 depth-four positions generated with a different seed. These are historical metrics from the original training pipeline, which did not enforce disjoint training and validation boards:
 
 - 61.2% exact move agreement
 - 86.7% immediate-win accuracy
 - 88.6% immediate-block accuracy
+
+New training runs use a deterministic board-based split across the connectome,
+sensory, and tactical curricula. A board and its horizontal reflection always
+belong to the same partition, preventing validation examples from leaking into
+training through another seed or mirror augmentation. Version-three caches are
+separate from the original caches and are rebuilt on the first run.
+
+The whole-connectome policy now trains only on measured activity: reversing the
+sensory slots while retaining the original downstream activity is not a valid
+brain simulation. Mirror augmentation remains in the engineered sensory policy.
+Training evaluation and runtime share the same decoder, including explicit
+mapping of classifier labels to board columns.
+
+The offline teacher batches all 69 winning windows with NumPy. On a local
+16-position depth-three benchmark, labels were unchanged and generation fell
+from 0.898 seconds to 0.065 seconds (about 14× faster); this is a teacher benchmark,
+not a measurement of full training time or gameplay strength. The bundled model
+has not been retrained with these changes. Run `npm run brain:train` to produce
+new model weights and validation metrics.
 
 ## Architecture
 
@@ -60,6 +79,7 @@ backend/
 ├── brain.py               MaleCNS encoder, simulation, spike trace, trained readout
 ├── connect_four.py        Position generator and offline expert labels
 ├── train.py               Reproducible reservoir-readout training
+├── policy.py              Shared training/runtime learned decoder
 └── models/                Trained readout and provenance metadata
 
 src/

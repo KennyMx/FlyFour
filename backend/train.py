@@ -13,6 +13,7 @@ import numpy as np
 from sklearn.ensemble import HistGradientBoostingClassifier
 
 from .brain import DEFAULT_METADATA, DEFAULT_MODEL, MaleCNSConnectFour
+from .policy import bundle_probabilities
 from .connect_four import (
     drop,
     expert_target,
@@ -62,23 +63,6 @@ def tactical_target(board: np.ndarray) -> tuple[int, int]:
     return 0, 3
 
 
-def bundle_probabilities(bundle: dict, features: np.ndarray) -> np.ndarray:
-    sensory = bundle["policy"].predict_proba(features[:, :84])
-    connectome = bundle["connectome_policy"].predict_proba(features)
-    weight = float(bundle["sensory_weight"])
-    probabilities = weight * sensory + (1 - weight) * connectome
-    detector = bundle["tactical_detector"].predict_proba(features[:, :84])
-    tactical = bundle["tactical_policy"]
-    tactical_raw = tactical.predict_proba(features[:, :84])
-    tactical_scores = np.zeros_like(probabilities)
-    tactical_scores[:, tactical.classes_] = tactical_raw
-    use_tactical = detector[:, 1:].max(axis=1) >= float(
-        bundle["tactical_threshold"]
-    )
-    probabilities[use_tactical] = tactical_scores[use_tactical]
-    return probabilities
-
-
 def main() -> None:
     sample_count = int(os.environ.get("FLY_TRAIN_SAMPLES", "2048"))
     validation_count = int(os.environ.get("FLY_VALIDATION_SAMPLES", "384"))
@@ -89,10 +73,12 @@ def main() -> None:
     cache_path = (
         Path(__file__).parent
         / "models"
-        / f"training_cache_v2_{sample_count}_{validation_count}.npz"
+        / f"training_cache_v3_{sample_count}_{validation_count}.npz"
     )
-    train_boards = training_positions(sample_count, seed=4_404)
-    validation_boards = np.stack(training_positions(validation_count, seed=9_909))
+    train_boards = training_positions(sample_count, seed=4_404, split="train")
+    validation_boards = np.stack(
+        training_positions(validation_count, seed=9_909, split="validation")
+    )
     if cache_path.exists():
         print(f"Loading cached spike curriculum from {cache_path}…", flush=True)
         cached = np.load(cache_path)
@@ -106,7 +92,7 @@ def main() -> None:
         base_path = (
             Path(__file__).parent
             / "models"
-            / "training_cache_v2_1024_256.npz"
+            / "training_cache_v3_1024_256.npz"
         )
         base_train_count = base_validation_count = 0
         features: list[np.ndarray] = []
@@ -169,14 +155,8 @@ def main() -> None:
         "pooled MaleCNS spike features…",
         flush=True,
     )
-    mirrored = X_train.copy()
-    mirrored[:, :84] = (
-        X_train[:, :84]
-        .reshape(-1, 2, 6, 7)[:, :, :, ::-1]
-        .reshape(-1, 84)
-    )
-    augmented_X = np.concatenate((X_train, mirrored))
-    augmented_y = np.concatenate((y_train, 6 - y_train))
+    # Downstream pools are tied to real neuron identities. Reflecting sensory
+    # slots cannot synthesize the corresponding whole-connectome activity.
     readout = HistGradientBoostingClassifier(
         max_iter=400,
         learning_rate=0.06,
@@ -186,12 +166,12 @@ def main() -> None:
         random_state=5_604,
         verbose=1,
     )
-    readout.fit(augmented_X, augmented_y)
+    readout.fit(X_train, y_train)
 
     on, off = sensory_templates(X_train[:, :84], train_boards)
     sensory_count = int(os.environ.get("FLY_SENSORY_SAMPLES", "10000"))
     print(f"Teaching sensory policy on {sensory_count:,} positions…", flush=True)
-    sensory_boards = training_positions(sensory_count, seed=2_718)
+    sensory_boards = training_positions(sensory_count, seed=2_718, split="train")
     sensory_X = expected_sensory_features(sensory_boards, on, off)
     sensory_y = np.asarray(
         [
@@ -221,7 +201,7 @@ def main() -> None:
         f"Teaching tactical specialist on {tactical_count:,} positions…",
         flush=True,
     )
-    tactical_boards = training_positions(tactical_count, seed=8_181)
+    tactical_boards = training_positions(tactical_count, seed=8_181, split="train")
     tactical_X = expected_sensory_features(tactical_boards, on, off)
     tactical_labels = [tactical_target(board) for board in tactical_boards]
     tactical_types = np.asarray(
@@ -283,6 +263,9 @@ def main() -> None:
     model_path.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(bundle, model_path, compress=3)
     metadata = {
+        "trainingCacheVersion": 3,
+        "validationSplit": "crc32 of reflection-canonical board modulo 5; held-out bucket 0",
+        "connectomeAugmentation": "none; only measured spike features",
         "method": "MaleCNS spike-policy ensemble with learned tactical specialist",
         "dataset": "MaleCNS v1.0",
         "neurons": int(reservoir.brain.n),

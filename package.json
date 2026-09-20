@@ -9,7 +9,7 @@
     "brain:setup": "python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt && FLY_DATA=$PWD/.fly-data .venv/bin/python -m flybrain download",
     "brain:train": "FLY_DATA=$PWD/.fly-data .venv/bin/python -m backend.train",
     "brain:serve": "FLY_DATA=$PWD/.fly-data .venv/bin/uvicorn backend.app:app --host 127.0.0.1 --port 8000",
-    "brain:test": ".venv/bin/python -m unittest backend.test_connect_four",
+    "brain:test": ".venv/bin/python -m unittest discover -s backend -p 'test_*.py'",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",

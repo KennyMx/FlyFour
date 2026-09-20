@@ -12,6 +12,8 @@ import joblib
 import numpy as np
 from flybrain import FlyBrain, Trace
 
+from .policy import bundle_probabilities
+
 ROOT = Path(__file__).resolve().parent
 DEFAULT_MODEL = ROOT / "models" / "connect_four_policy.joblib"
 DEFAULT_METADATA = ROOT / "models" / "connect_four_readout.json"
@@ -156,39 +158,7 @@ class MaleCNSConnectFour:
         }
 
     def _policy_probabilities(self, features: np.ndarray) -> np.ndarray:
-        if not isinstance(self.readout, dict):
-            raw = self.readout.predict_proba(features[None])[0]
-            scores = np.zeros(7, dtype=np.float64)
-            scores[np.asarray(self.readout.classes_, dtype=np.int64)] = raw
-            return scores
-
-        sensory = self.readout["policy"].predict_proba(features[None, :84])[0]
-        connectome = self.readout["connectome_policy"].predict_proba(features[None])[0]
-        sensory_weight = float(self.readout.get("sensory_weight", 0.7))
-        scores = sensory_weight * sensory + (1 - sensory_weight) * connectome
-
-        detector = self.readout["tactical_detector"].predict_proba(
-            features[None, :84]
-        )[0]
-        detector_classes = self.readout["tactical_detector"].classes_
-        tactical_confidence = max(
-            (
-                probability
-                for label, probability in zip(
-                    detector_classes, detector, strict=True
-                )
-                if label != 0
-            ),
-            default=0.0,
-        )
-        if tactical_confidence >= float(
-            self.readout.get("tactical_threshold", 0.15)
-        ):
-            tactical = self.readout["tactical_policy"]
-            raw = tactical.predict_proba(features[None, :84])[0]
-            scores = np.zeros(7, dtype=np.float64)
-            scores[np.asarray(tactical.classes_, dtype=np.int64)] = raw
-        return scores
+        return bundle_probabilities(self.readout, features[None])[0]
 
     def coordinates(self) -> tuple[np.ndarray, int]:
         if self.brain.positions is None:
