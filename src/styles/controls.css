@@ -1,0 +1,157 @@
+.control-panel {
+  padding-top: 25px;
+  border-top: 1px solid var(--line);
+}
+
+.game-controls {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 22px;
+}
+
+.segmented {
+  display: flex;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.segmented button {
+  padding: 9px 13px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.segmented button.active {
+  color: white;
+  background: var(--navy);
+  box-shadow: 0 4px 10px rgba(13, 36, 64, 0.18);
+}
+
+.select-control {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.select-control select {
+  padding: 9px 32px 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--navy);
+  background: var(--paper);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.motion-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.motion-toggle input {
+  position: absolute;
+  opacity: 0;
+}
+
+.motion-toggle > span {
+  width: 34px;
+  height: 19px;
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: #d5d9db;
+  transition: background 180ms;
+}
+
+.motion-toggle > span::after {
+  content: '';
+  width: 13px;
+  height: 13px;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 180ms;
+}
+
+.motion-toggle input:checked + span {
+  background: var(--blue);
+}
+
+.motion-toggle input:checked + span::after {
+  transform: translateX(15px);
+}
+
+.motion-toggle input:focus-visible + span {
+  outline: 3px solid var(--cyan);
+  outline-offset: 3px;
+}
+
+.control-actions {
+  display: flex;
+  gap: 9px;
+}
+
+.new-game-button,
+.secondary-button {
+  padding: 11px 16px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.new-game-button {
+  border: 1px solid var(--blue-deep);
+  color: white;
+  background: var(--blue);
+  box-shadow: 0 5px 12px rgba(23, 89, 209, 0.2);
+}
+
+.secondary-button {
+  border: 1px solid var(--line);
+  color: var(--navy);
+  background: transparent;
+}
+
+.secondary-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.science-note {
+  max-width: 720px;
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+.science-note summary {
+  width: fit-content;
+  color: var(--blue);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.science-note p {
+  margin: 8px 0 0;
+}
