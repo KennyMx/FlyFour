@@ -22,8 +22,11 @@ interface ConnectomeResponse {
 export class ConnectomeAdapter implements FlyBrainAdapter {
   readonly name = 'Fly Brain'
   private readonly fallback = new ClassicAIAdapter()
+  private readonly endpoint?: string
 
-  constructor(private readonly endpoint?: string) {}
+  constructor(endpoint?: string) {
+    this.endpoint = endpoint
+  }
 
   async decide(context: DecisionContext): Promise<BrainDecision> {
     if (!this.endpoint) {
