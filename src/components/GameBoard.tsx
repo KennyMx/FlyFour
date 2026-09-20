@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { COLUMNS, ROWS } from '../game/engine'
 import type { Board, Move } from '../game/types'
 
@@ -21,11 +21,6 @@ export function GameBoard({
 }: GameBoardProps) {
   const [focusedColumn, setFocusedColumn] = useState(3)
   const buttons = useRef<(HTMLButtonElement | null)[]>([])
-
-  useEffect(() => {
-    if (selectedColumn === null) return
-    setFocusedColumn(selectedColumn)
-  }, [selectedColumn])
 
   function handleKeyDown(event: React.KeyboardEvent, column: number) {
     let next = column
