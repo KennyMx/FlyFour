@@ -19,6 +19,7 @@ import type {
   OpponentMode,
   Replay,
 } from '../game/types'
+import { BRAIN_ENDPOINT } from './useBrainStatus'
 
 const SCIENTIFIC_NOTE =
   'A fly connectome contributes biological wiring only. Board encoding, neural dynamics, column decoding, and reward are engineered for this game.'
@@ -33,15 +34,21 @@ export function useFlyFour(reducedMotion: boolean) {
   const [phase, setPhase] = useState<GamePhase>('player')
   const [result, setResult] = useState<GameResult>(null)
   const [difficulty, setDifficulty] = useState<Difficulty>('medium')
-  const [opponent, setOpponent] = useState<OpponentMode>('classic')
+  const [opponent, setOpponent] = useState<OpponentMode>('connectome')
   const [candidates, setCandidates] = useState<CandidateScore[]>([])
   const [selectedColumn, setSelectedColumn] = useState<number | null>(null)
+  const [activeNeurons, setActiveNeurons] = useState<number[]>([])
+  const [brainError, setBrainError] = useState<string | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
   const gameRef = useRef(0)
+  const rewardSentRef = useRef(false)
 
   const classicAdapter = useMemo(() => new ClassicAIAdapter(), [])
   const connectomeAdapter = useMemo(
-    () => new ConnectomeAdapter(import.meta.env.VITE_FLY_BRAIN_URL),
+    () =>
+      new ConnectomeAdapter(
+        import.meta.env.VITE_FLY_BRAIN_URL ?? 'http://127.0.0.1:8000',
+      ),
     [],
   )
 
@@ -74,6 +81,7 @@ export function useFlyFour(reducedMotion: boolean) {
         if (controller.signal.aborted || gameId !== gameRef.current) return
 
         setCandidates(decision.candidates)
+        setActiveNeurons(decision.activeNeurons ?? [])
         setSelectedColumn(decision.column)
         setPhase('selecting')
         const log: DecisionLog = {
@@ -103,13 +111,15 @@ export function useFlyFour(reducedMotion: boolean) {
         setMoves((current) => [...current, move])
         setSelectedColumn(null)
         setCandidates([])
+        setActiveNeurons([])
         const nextResult = getResult(dropped.board)
         if (nextResult) finishGame(nextResult)
         else setPhase('player')
       } catch (error) {
         if (!(error instanceof DOMException && error.name === 'AbortError')) {
           console.error('[Fly Four] opponent failed', error)
-          setPhase('player')
+          setBrainError(error instanceof Error ? error.message : 'MaleCNS backend failed')
+          setPhase('error')
         }
       }
     },
@@ -146,6 +156,7 @@ export function useFlyFour(reducedMotion: boolean) {
   const newGame = useCallback(() => {
     controllerRef.current?.abort()
     gameRef.current += 1
+    rewardSentRef.current = false
     setBoard(createBoard())
     setMoves([])
     setDecisions([])
@@ -153,9 +164,37 @@ export function useFlyFour(reducedMotion: boolean) {
     setResult(null)
     setCandidates([])
     setSelectedColumn(null)
+    setActiveNeurons([])
+    setBrainError(null)
   }, [])
 
   useEffect(() => () => controllerRef.current?.abort(), [])
+
+  useEffect(() => {
+    if (
+      !result ||
+      opponent !== 'connectome' ||
+      !decisions.length ||
+      rewardSentRef.current
+    ) {
+      return
+    }
+    rewardSentRef.current = true
+    const reward = result === 'fly' ? 1 : result === 'human' ? -1 : 0
+    const lastDecision = decisions.at(-1)
+    void fetch(`${BRAIN_ENDPOINT}/reward`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        board: encodeBoard(board),
+        selectedColumn: lastDecision?.selectedColumn ?? 0,
+        reward,
+        result,
+      }),
+    }).catch((error: unknown) => {
+      console.warn('[Fly Four] reward log failed', error)
+    })
+  }, [board, decisions, opponent, result])
 
   const winnerCells = result === 'human' || result === 'fly' ? winningCells(board, result) : []
   const replay: Replay = {
@@ -179,6 +218,8 @@ export function useFlyFour(reducedMotion: boolean) {
     opponent,
     candidates,
     selectedColumn,
+    activeNeurons,
+    brainError,
     winnerCells,
     replay,
     playColumn,

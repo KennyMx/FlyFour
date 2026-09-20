@@ -3,7 +3,7 @@ export type Cell = Player | null
 export type Board = Cell[][]
 export type Difficulty = 'easy' | 'medium' | 'hard'
 export type OpponentMode = 'classic' | 'connectome'
-export type GamePhase = 'player' | 'thinking' | 'selecting' | 'ended'
+export type GamePhase = 'player' | 'thinking' | 'selecting' | 'ended' | 'error'
 export type GameResult = Player | 'draw' | null
 
 export interface Move {
@@ -22,7 +22,9 @@ export interface BrainDecision {
   column: number
   candidates: CandidateScore[]
   neuralResponse?: number[]
-  source: 'classic-ai' | 'connectome' | 'connectome-fallback'
+  activeNeurons?: number[]
+  simulationSteps?: number
+  source: 'classic-ai' | 'malecns-v1.0-trained-readout'
 }
 
 export interface DecisionContext {
