@@ -1,15 +1,20 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import './styles/base.css'
 import './styles/layout.css'
 import './styles/board.css'
 import './styles/brain.css'
 import './styles/controls.css'
 import './styles/responsive.css'
-import { BrainVisualization } from './components/BrainVisualization'
 import { FlyMascot } from './components/FlyMascot'
 import { GameBoard } from './components/GameBoard'
 import { GameControls } from './components/GameControls'
 import { useFlyFour } from './hooks/useFlyFour'
+
+const BrainVisualization = lazy(() =>
+  import('./components/BrainVisualization').then((module) => ({
+    default: module.BrainVisualization,
+  })),
+)
 
 export default function FlyFourApp() {
   const [reducedMotion, setReducedMotion] = useState(() =>
@@ -86,15 +91,17 @@ export default function FlyFourApp() {
                 : '8K+ NEURONS'}
             </span>
           </div>
-          <BrainVisualization
-            phase={game.phase}
-            candidates={game.candidates}
-            selectedColumn={game.selectedColumn}
-            reducedMotion={reducedMotion}
-            connectomeEndpoint={
-              game.opponent === 'connectome' ? import.meta.env.VITE_FLY_BRAIN_URL : undefined
-            }
-          />
+          <Suspense fallback={<div className="brain-loading">WAKING NEURONS…</div>}>
+            <BrainVisualization
+              phase={game.phase}
+              candidates={game.candidates}
+              selectedColumn={game.selectedColumn}
+              reducedMotion={reducedMotion}
+              connectomeEndpoint={
+                game.opponent === 'connectome' ? import.meta.env.VITE_FLY_BRAIN_URL : undefined
+              }
+            />
+          </Suspense>
           <FlyMascot
             phase={game.phase}
             result={game.result}

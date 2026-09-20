@@ -8,6 +8,15 @@
   transition: opacity 420ms ease, transform 560ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+.brain-loading {
+  position: absolute;
+  inset: 48% 0 auto;
+  color: #8fa9bd;
+  font: 700 0.62rem/1 'Manrope', sans-serif;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
 .brain-visualization.thinking,
 .brain-visualization.selecting {
   opacity: 1;
