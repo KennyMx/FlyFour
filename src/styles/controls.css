@@ -127,11 +127,3 @@
 .science-note p {
   margin: 8px 0 0;
 }
-
-.project-link {
-  display: inline-block;
-  margin-top: 18px;
-  color: var(--blue);
-  font-size: 0.72rem;
-  font-weight: 700;
-}

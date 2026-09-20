@@ -62,9 +62,27 @@
   animation: status-pulse 1s ease-in-out infinite;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-self: end;
+  gap: 20px;
+}
+
+.github-link {
+  color: var(--blue);
+  font-size: 0.69rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+}
+
+.github-link:hover {
+  text-decoration: underline;
+}
+
 .score-key {
   display: flex;
-  justify-self: end;
   gap: 20px;
   color: var(--muted);
   font-size: 0.69rem;

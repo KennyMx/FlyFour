@@ -60,9 +60,19 @@ export default function FlyFourApp() {
           <span />
           {status}
         </div>
-        <div className="score-key" aria-label="Piece colors">
-          <span><i className="yellow-dot" />YOU</span>
-          <span><i className="coral-dot" />FLY</span>
+        <div className="topbar-actions">
+          <a
+            className="github-link"
+            href="https://github.com/KennyMx/FlyFour#readme"
+            target="_blank"
+            rel="noreferrer"
+          >
+            README / GITHUB ↗
+          </a>
+          <div className="score-key" aria-label="Piece colors">
+            <span><i className="yellow-dot" />YOU</span>
+            <span><i className="coral-dot" />FLY</span>
+          </div>
         </div>
       </header>
 
@@ -138,14 +148,6 @@ export default function FlyFourApp() {
           onNewGame={game.newGame}
           onExport={exportReplay}
         />
-        <a
-          className="project-link"
-          href="https://github.com/KennyMx/FlyFour#readme"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Architecture, training notes, and setup guide ↗
-        </a>
         <details className="science-note">
           <summary>How biological is this?</summary>
           <p>
