@@ -52,7 +52,7 @@ export default function FlyFourApp() {
   return (
     <main className={reducedMotion ? 'app reduce-motion' : 'app'}>
       <header className="topbar">
-        <a href="/" className="brand" aria-label="Fly Four home">
+        <a href={import.meta.env.BASE_URL} className="brand" aria-label="Fly Four home">
           <span className="brand-wing" aria-hidden="true">◒</span>
           <span>FLY FOUR</span>
         </a>
@@ -138,6 +138,14 @@ export default function FlyFourApp() {
           onNewGame={game.newGame}
           onExport={exportReplay}
         />
+        <a
+          className="project-link"
+          href="https://github.com/KennyMx/FlyFour#readme"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Architecture, training notes, and setup guide ↗
+        </a>
         <details className="science-note">
           <summary>How biological is this?</summary>
           <p>
@@ -145,15 +153,6 @@ export default function FlyFourApp() {
             connections. A supervised readout was trained on the resulting spikes to imitate
             expert Connect Four labels. The biological wiring is real; board encoding, simulated
             dynamics, training labels, and the seven-column decoder are engineered.
-          </p>
-          <p>
-            <a
-              href="https://github.com/KennyMx/FlyFour#readme"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Read the full architecture, training notes, and setup guide on GitHub ↗
-            </a>
           </p>
         </details>
       </section>
