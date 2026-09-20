@@ -127,3 +127,8 @@
 .science-note p {
   margin: 8px 0 0;
 }
+
+.science-note a {
+  color: var(--blue);
+  font-weight: 700;
+}

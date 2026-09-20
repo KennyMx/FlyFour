@@ -146,6 +146,15 @@ export default function FlyFourApp() {
             expert Connect Four labels. The biological wiring is real; board encoding, simulated
             dynamics, training labels, and the seven-column decoder are engineered.
           </p>
+          <p>
+            <a
+              href="https://github.com/KennyMx/FlyFour#readme"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Read the full architecture, training notes, and setup guide on GitHub ↗
+            </a>
+          </p>
         </details>
       </section>
     </main>
