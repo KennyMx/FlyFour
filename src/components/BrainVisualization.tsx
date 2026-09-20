@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import type { CandidateScore, GamePhase } from '../game/types'
 import {
-  createProceduralFlyBrain,
   loadConnectomeCoordinates,
   type NeuronCloud,
 } from '../visualization/neuronData'
@@ -13,7 +12,7 @@ interface BrainVisualizationProps {
   selectedColumn: number | null
   activeNeurons: number[]
   reducedMotion: boolean
-  connectomeEndpoint?: string
+  connectomeEndpoint: string
 }
 
 const INACTIVE = new THREE.Color('#52687d')
@@ -46,17 +45,15 @@ export function BrainVisualization({
 }: BrainVisualizationProps) {
   const mountRef = useRef<HTMLDivElement>(null)
   const live = useRef({ phase, candidates, selectedColumn, activeNeurons, reducedMotion })
-  const procedural = useMemo(() => createProceduralFlyBrain(), [])
   const [remoteCloud, setRemoteCloud] = useState<NeuronCloud | null>(null)
   const [coordinateError, setCoordinateError] = useState<string | null>(null)
-  const cloud = connectomeEndpoint ? remoteCloud : procedural
+  const cloud = remoteCloud
 
   useEffect(() => {
     live.current = { phase, candidates, selectedColumn, activeNeurons, reducedMotion }
   }, [phase, candidates, selectedColumn, activeNeurons, reducedMotion])
 
   useEffect(() => {
-    if (!connectomeEndpoint) return
     const controller = new AbortController()
     loadConnectomeCoordinates(connectomeEndpoint, controller.signal)
       .then((loaded) => {
@@ -95,7 +92,7 @@ export function BrainVisualization({
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
     const pointMaterial = new THREE.PointsMaterial({
-      size: cloud.source === 'real-connectome' ? 0.025 : 0.035,
+      size: 0.025,
       vertexColors: true,
       transparent: true,
       opacity: 0.74,
@@ -210,9 +207,7 @@ export function BrainVisualization({
           ? 'REAL COORDINATES UNAVAILABLE'
           : cloud?.source === 'real-connectome'
             ? `MALECNS · ${(cloud.localizedCount ?? cloud.coordinates.length).toLocaleString()} LOCATED · ${cloud.coordinates.length.toLocaleString()} TOTAL`
-            : connectomeEndpoint
-              ? 'LOADING MALECNS COORDINATES'
-              : 'PROCEDURAL CLASSIC-AI MAP'}
+            : 'LOADING MALECNS COORDINATES'}
       </div>
       <div className="output-regions" aria-label="Seven column output regions">
         {Array.from({ length: 7 }, (_, column) => {

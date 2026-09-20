@@ -5,68 +5,25 @@
 
 .game-controls {
   display: grid;
-  grid-template-columns: auto auto 1fr auto;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 22px;
 }
 
-.segmented {
-  display: flex;
-  padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.55);
-}
-
-.segmented button {
-  padding: 9px 13px;
-  border: 0;
-  border-radius: 8px;
-  color: var(--muted);
-  background: transparent;
-  font-size: 0.75rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.segmented button.active {
+.brain-status {
+  padding: 12px 16px;
+  border-radius: 10px;
   color: white;
   background: var(--navy);
-  box-shadow: 0 4px 10px rgba(13, 36, 64, 0.18);
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
-.segmented button small {
-  margin-left: 4px;
-  color: var(--coral);
-  font-size: 0.52rem;
-  letter-spacing: 0.08em;
-}
-
-.segmented button.active small {
+.brain-status small {
+  margin-left: 8px;
   color: var(--cyan);
-}
-
-.select-control {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 700;
-}
-
-.select-control select {
-  padding: 9px 32px 9px 11px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  color: var(--navy);
-  background: var(--paper);
-  font-size: 0.76rem;
-  font-weight: 700;
-}
-
-.select-control select:disabled {
-  opacity: 0.5;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
 }
 
 .motion-toggle {

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ClassicAIAdapter } from '../game/ai'
 import { ConnectomeAdapter } from '../game/connectome'
 import {
   createBoard,
@@ -12,11 +11,9 @@ import type {
   Board,
   CandidateScore,
   DecisionLog,
-  Difficulty,
   GamePhase,
   GameResult,
   Move,
-  OpponentMode,
   Replay,
 } from '../game/types'
 import { BRAIN_ENDPOINT } from './useBrainStatus'
@@ -33,8 +30,6 @@ export function useFlyFour(reducedMotion: boolean) {
   const [decisions, setDecisions] = useState<DecisionLog[]>([])
   const [phase, setPhase] = useState<GamePhase>('player')
   const [result, setResult] = useState<GameResult>(null)
-  const [difficulty, setDifficulty] = useState<Difficulty>('medium')
-  const [opponent, setOpponent] = useState<OpponentMode>('connectome')
   const [candidates, setCandidates] = useState<CandidateScore[]>([])
   const [selectedColumn, setSelectedColumn] = useState<number | null>(null)
   const [activeNeurons, setActiveNeurons] = useState<number[]>([])
@@ -43,7 +38,6 @@ export function useFlyFour(reducedMotion: boolean) {
   const gameRef = useRef(0)
   const rewardSentRef = useRef(false)
 
-  const classicAdapter = useMemo(() => new ClassicAIAdapter(), [])
   const connectomeAdapter = useMemo(
     () =>
       new ConnectomeAdapter(
@@ -68,12 +62,10 @@ export function useFlyFour(reducedMotion: boolean) {
     async (inputBoard: Board, gameId: number) => {
       const controller = new AbortController()
       controllerRef.current = controller
-      const adapter = opponent === 'connectome' ? connectomeAdapter : classicAdapter
       try {
         const thinkingStart = performance.now()
-        const decision = await adapter.decide({
+        const decision = await connectomeAdapter.decide({
           board: inputBoard,
-          difficulty,
           signal: controller.signal,
         })
         const minimumThinkingTime = reducedMotion ? 100 : 900
@@ -124,12 +116,9 @@ export function useFlyFour(reducedMotion: boolean) {
       }
     },
     [
-      classicAdapter,
       connectomeAdapter,
-      difficulty,
       finishGame,
       moves.length,
-      opponent,
       reducedMotion,
     ],
   )
@@ -173,7 +162,6 @@ export function useFlyFour(reducedMotion: boolean) {
   useEffect(() => {
     if (
       !result ||
-      opponent !== 'connectome' ||
       !decisions.length ||
       rewardSentRef.current
     ) {
@@ -194,15 +182,14 @@ export function useFlyFour(reducedMotion: boolean) {
     }).catch((error: unknown) => {
       console.warn('[Fly Four] reward log failed', error)
     })
-  }, [board, decisions, opponent, result])
+  }, [board, decisions, result])
 
   const winnerCells = result === 'human' || result === 'fly' ? winningCells(board, result) : []
   const replay: Replay = {
     format: 'fly-four-replay',
     version: 1,
     createdAt: new Date().toISOString(),
-    difficulty,
-    opponent,
+    opponent: 'connectome',
     moves,
     decisions,
     result,
@@ -214,8 +201,6 @@ export function useFlyFour(reducedMotion: boolean) {
     moves,
     phase,
     result,
-    difficulty,
-    opponent,
     candidates,
     selectedColumn,
     activeNeurons,
@@ -224,7 +209,5 @@ export function useFlyFour(reducedMotion: boolean) {
     replay,
     playColumn,
     newGame,
-    setDifficulty,
-    setOpponent,
   }
 }

@@ -36,7 +36,6 @@ export class ConnectomeAdapter implements FlyBrainAdapter {
         board: encodeBoard(context.board),
         shape: [6, 7],
         legalColumns: legalMoves(context.board),
-        difficulty: context.difficulty,
       }),
       signal: context.signal,
     })

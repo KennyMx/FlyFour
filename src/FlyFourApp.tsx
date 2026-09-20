@@ -26,7 +26,7 @@ export default function FlyFourApp() {
   const status =
     game.brainError
       ? 'BRAIN OFFLINE'
-      : game.opponent === 'connectome' && !brainStatus.ready
+      : !brainStatus.ready
         ? 'CONNECTING TO BRAIN…'
         : game.result === 'human'
       ? 'YOU WIN!'
@@ -80,7 +80,7 @@ export default function FlyFourApp() {
             disabled={
               game.phase !== 'player' ||
               game.result !== null ||
-              (game.opponent === 'connectome' && !brainStatus.ready)
+              (!brainStatus.ready)
             }
             lastMove={game.moves.at(-1) ?? null}
             winningCells={game.winnerCells}
@@ -96,11 +96,9 @@ export default function FlyFourApp() {
               <h2>{game.phase === 'player' ? 'Waiting for input' : status}</h2>
             </div>
             <span className="neuron-count">
-              {game.opponent === 'connectome'
-                ? brainStatus.ready
-                  ? `${brainStatus.neurons?.toLocaleString() ?? '166,700'} REAL NEURONS`
-                  : 'BRAIN NOT READY'
-                : '8K+ NEURONS'}
+              {brainStatus.ready
+                ? `${brainStatus.neurons?.toLocaleString() ?? '166,700'} REAL NEURONS`
+                : 'BRAIN NOT READY'}
             </span>
           </div>
           <Suspense fallback={<div className="brain-loading">WAKING NEURONS…</div>}>
@@ -110,7 +108,7 @@ export default function FlyFourApp() {
               selectedColumn={game.selectedColumn}
               activeNeurons={game.activeNeurons}
               reducedMotion={reducedMotion}
-              connectomeEndpoint={game.opponent === 'connectome' ? BRAIN_ENDPOINT : undefined}
+              connectomeEndpoint={BRAIN_ENDPOINT}
             />
           </Suspense>
           <FlyMascot
@@ -119,13 +117,11 @@ export default function FlyFourApp() {
             selectedColumn={game.selectedColumn}
           />
           <p className="science-caption">
-            {game.opponent === 'connectome'
-              ? brainStatus.ready
-                ? `${brainStatus.connections?.toLocaleString()} biological synapses · trained readout`
-                : game.brainError ?? brainStatus.error ?? 'Loading MaleCNS…'
-              : 'Procedural neural map driven by Classic AI.'}
+            {brainStatus.ready
+              ? `${brainStatus.connections?.toLocaleString()} biological synapses · trained readout`
+              : game.brainError ?? brainStatus.error ?? 'Loading MaleCNS…'}
           </p>
-          {game.opponent === 'connectome' && !brainStatus.ready && (
+          {!brainStatus.ready && (
             <button className="brain-retry" type="button" onClick={() => void refreshBrain()}>
               Retry connection
             </button>
@@ -135,13 +131,9 @@ export default function FlyFourApp() {
 
       <section className="control-panel">
         <GameControls
-          difficulty={game.difficulty}
-          opponent={game.opponent}
           reducedMotion={reducedMotion}
           brainReady={brainStatus.ready}
           hasReplay={game.moves.length > 0}
-          onDifficulty={game.setDifficulty}
-          onOpponent={game.setOpponent}
           onReducedMotion={setReducedMotion}
           onNewGame={game.newGame}
           onExport={exportReplay}

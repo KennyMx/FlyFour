@@ -52,7 +52,6 @@ class DecisionRequest(BaseModel):
     board: list[int] = Field(min_length=42, max_length=42)
     shape: tuple[int, int] = (6, 7)
     legalColumns: list[int]
-    difficulty: str | None = None
 
     @field_validator("board")
     @classmethod

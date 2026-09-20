@@ -1,60 +1,25 @@
-import type { Difficulty, OpponentMode } from '../game/types'
-
 interface GameControlsProps {
-  difficulty: Difficulty
-  opponent: OpponentMode
   reducedMotion: boolean
   brainReady: boolean
   hasReplay: boolean
-  onDifficulty: (difficulty: Difficulty) => void
-  onOpponent: (opponent: OpponentMode) => void
   onReducedMotion: (enabled: boolean) => void
   onNewGame: () => void
   onExport: () => void
 }
 
 export function GameControls({
-  difficulty,
-  opponent,
   reducedMotion,
   brainReady,
   hasReplay,
-  onDifficulty,
-  onOpponent,
   onReducedMotion,
   onNewGame,
   onExport,
 }: GameControlsProps) {
   return (
     <div className="game-controls" aria-label="Game settings">
-      <div className="segmented" role="group" aria-label="Opponent">
-        <button
-          className={opponent === 'classic' ? 'active' : ''}
-          onClick={() => onOpponent('classic')}
-          type="button"
-        >
-          Classic AI
-        </button>
-        <button
-          className={opponent === 'connectome' ? 'active' : ''}
-          onClick={() => onOpponent('connectome')}
-          type="button"
-        >
-          Fly Brain <small>{brainReady ? 'REAL' : 'OFFLINE'}</small>
-        </button>
+      <div className="brain-status" role="status">
+        Fly Brain <small>{brainReady ? 'CONNECTED' : 'OFFLINE'}</small>
       </div>
-      <label className="select-control">
-        <span>{opponent === 'connectome' ? 'Difficulty (Classic only)' : 'Difficulty'}</span>
-        <select
-          value={difficulty}
-          disabled={opponent === 'connectome'}
-          onChange={(event) => onDifficulty(event.target.value as Difficulty)}
-        >
-          <option value="easy">Easy</option>
-          <option value="medium">Medium</option>
-          <option value="hard">Hard</option>
-        </select>
-      </label>
       <label className="motion-toggle">
         <input
           type="checkbox"

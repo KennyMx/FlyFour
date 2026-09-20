@@ -1,8 +1,6 @@
 export type Player = 'human' | 'fly'
 export type Cell = Player | null
 export type Board = Cell[][]
-export type Difficulty = 'easy' | 'medium' | 'hard'
-export type OpponentMode = 'classic' | 'connectome'
 export type GamePhase = 'player' | 'thinking' | 'selecting' | 'ended' | 'error'
 export type GameResult = Player | 'draw' | null
 
@@ -24,12 +22,11 @@ export interface BrainDecision {
   neuralResponse?: number[]
   activeNeurons?: number[]
   simulationSteps?: number
-  source: 'classic-ai' | 'malecns-v1.0-trained-readout'
+  source: 'malecns-v1.0-trained-readout'
 }
 
 export interface DecisionContext {
   board: Board
-  difficulty: Difficulty
   signal?: AbortSignal
 }
 
@@ -53,8 +50,7 @@ export interface Replay {
   format: 'fly-four-replay'
   version: 1
   createdAt: string
-  difficulty: Difficulty
-  opponent: OpponentMode
+  opponent: 'connectome'
   moves: Move[]
   decisions: DecisionLog[]
   result: GameResult

@@ -21,7 +21,6 @@ describe('MaleCNS adapter', () => {
 
     const decision = await new ConnectomeAdapter('http://brain').decide({
       board: createBoard(),
-      difficulty: 'hard',
     })
 
     expect(decision.column).toBe(3)
@@ -40,7 +39,6 @@ describe('MaleCNS adapter', () => {
     await expect(
       new ConnectomeAdapter('http://brain').decide({
         board: createBoard(),
-        difficulty: 'hard',
       }),
     ).rejects.toThrow('readout is not trained')
   })
