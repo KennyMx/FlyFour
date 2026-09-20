@@ -1,5 +1,11 @@
 # Fly Four
 
+## [Open the public Fly Four site →](https://kennymx.github.io/FlyFour/)
+
+The GitHub Pages interface is public and works without a GitHub account. Playing
+against the MaleCNS brain requires the Python backend described below; GitHub
+Pages hosts the static interface only.
+
 Connect Four against a trained readout of the real **MaleCNS v1.0 fruit-fly connectome**.
 
 Fly Brain runs a leaky integrate-and-fire simulation containing 166,700 neurons and approximately 25 million measured connections. Board positions stimulate real visual neurons and activity propagates through the fixed connectome. A trained ensemble reads pooled sensory, visual-projection, and descending-neuron spikes to score the seven columns.
