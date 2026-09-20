@@ -8,6 +8,7 @@ import './styles/responsive.css'
 import { FlyMascot } from './components/FlyMascot'
 import { GameBoard } from './components/GameBoard'
 import { GameControls } from './components/GameControls'
+import { BRAIN_ENDPOINT, useBrainStatus } from './hooks/useBrainStatus'
 import { useFlyFour } from './hooks/useFlyFour'
 
 const BrainVisualization = lazy(() =>
@@ -21,8 +22,13 @@ export default function FlyFourApp() {
     window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   )
   const game = useFlyFour(reducedMotion)
+  const { status: brainStatus, refresh: refreshBrain } = useBrainStatus()
   const status =
-    game.result === 'human'
+    game.brainError
+      ? 'BRAIN OFFLINE'
+      : game.opponent === 'connectome' && !brainStatus.ready
+        ? 'CONNECTING TO BRAIN…'
+        : game.result === 'human'
       ? 'YOU WIN!'
       : game.result === 'fly'
         ? 'FLY WINS!'
@@ -71,7 +77,11 @@ export default function FlyFourApp() {
           </div>
           <GameBoard
             board={game.board}
-            disabled={game.phase !== 'player' || game.result !== null}
+            disabled={
+              game.phase !== 'player' ||
+              game.result !== null ||
+              (game.opponent === 'connectome' && !brainStatus.ready)
+            }
             lastMove={game.moves.at(-1) ?? null}
             winningCells={game.winnerCells}
             selectedColumn={game.selectedColumn}
@@ -86,8 +96,10 @@ export default function FlyFourApp() {
               <h2>{game.phase === 'player' ? 'Waiting for input' : status}</h2>
             </div>
             <span className="neuron-count">
-              {game.opponent === 'connectome' && import.meta.env.VITE_FLY_BRAIN_URL
-                ? 'CONNECTOME'
+              {game.opponent === 'connectome'
+                ? brainStatus.ready
+                  ? `${brainStatus.neurons?.toLocaleString() ?? '166,700'} REAL NEURONS`
+                  : 'BRAIN NOT READY'
                 : '8K+ NEURONS'}
             </span>
           </div>
@@ -96,10 +108,9 @@ export default function FlyFourApp() {
               phase={game.phase}
               candidates={game.candidates}
               selectedColumn={game.selectedColumn}
+              activeNeurons={game.activeNeurons}
               reducedMotion={reducedMotion}
-              connectomeEndpoint={
-                game.opponent === 'connectome' ? import.meta.env.VITE_FLY_BRAIN_URL : undefined
-              }
+              connectomeEndpoint={game.opponent === 'connectome' ? BRAIN_ENDPOINT : undefined}
             />
           </Suspense>
           <FlyMascot
@@ -109,9 +120,16 @@ export default function FlyFourApp() {
           />
           <p className="science-caption">
             {game.opponent === 'connectome'
-              ? 'Biological wiring; engineered game inputs and readout.'
+              ? brainStatus.ready
+                ? `${brainStatus.connections?.toLocaleString()} biological synapses · trained readout`
+                : game.brainError ?? brainStatus.error ?? 'Loading MaleCNS…'
               : 'Procedural neural map driven by Classic AI.'}
           </p>
+          {game.opponent === 'connectome' && !brainStatus.ready && (
+            <button className="brain-retry" type="button" onClick={() => void refreshBrain()}>
+              Retry connection
+            </button>
+          )}
         </aside>
       </section>
 
@@ -120,6 +138,7 @@ export default function FlyFourApp() {
           difficulty={game.difficulty}
           opponent={game.opponent}
           reducedMotion={reducedMotion}
+          brainReady={brainStatus.ready}
           hasReplay={game.moves.length > 0}
           onDifficulty={game.setDifficulty}
           onOpponent={game.setOpponent}
@@ -130,10 +149,10 @@ export default function FlyFourApp() {
         <details className="science-note">
           <summary>How biological is this?</summary>
           <p>
-            A fruit fly does not naturally understand Connect Four. With a configured backend,
-            real connectome coordinates and wiring can be used, while board encoding, simulated
-            neuron dynamics, column decoding, and rewards remain engineered. The default display
-            is clearly labeled procedural data.
+            Fly Brain runs all 166,700 MaleCNS v1.0 neurons with 25 million measured
+            connections. A supervised readout was trained on the resulting spikes to imitate
+            expert Connect Four labels. The biological wiring is real; board encoding, simulated
+            dynamics, training labels, and the seven-column decoder are engineered.
           </p>
         </details>
       </section>

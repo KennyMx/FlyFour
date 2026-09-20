@@ -62,6 +62,8 @@ export function FlyMascot({ phase, result, selectedColumn }: FlyMascotProps) {
                 ? 'Hmm…'
                 : phase === 'selecting'
                   ? 'Got it!'
+                  : phase === 'error'
+                    ? 'Brain link lost!'
                   : 'Your move!'}
       </span>
     </div>

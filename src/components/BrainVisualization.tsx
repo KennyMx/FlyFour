@@ -11,6 +11,7 @@ interface BrainVisualizationProps {
   phase: GamePhase
   candidates: CandidateScore[]
   selectedColumn: number | null
+  activeNeurons: number[]
   reducedMotion: boolean
   connectomeEndpoint?: string
 }
@@ -39,28 +40,36 @@ export function BrainVisualization({
   phase,
   candidates,
   selectedColumn,
+  activeNeurons,
   reducedMotion,
   connectomeEndpoint,
 }: BrainVisualizationProps) {
   const mountRef = useRef<HTMLDivElement>(null)
-  const live = useRef({ phase, candidates, selectedColumn, reducedMotion })
+  const live = useRef({ phase, candidates, selectedColumn, activeNeurons, reducedMotion })
   const procedural = useMemo(() => createProceduralFlyBrain(), [])
   const [remoteCloud, setRemoteCloud] = useState<NeuronCloud | null>(null)
-  const cloud = connectomeEndpoint ? (remoteCloud ?? procedural) : procedural
+  const [coordinateError, setCoordinateError] = useState<string | null>(null)
+  const cloud = connectomeEndpoint ? remoteCloud : procedural
 
   useEffect(() => {
-    live.current = { phase, candidates, selectedColumn, reducedMotion }
-  }, [phase, candidates, selectedColumn, reducedMotion])
+    live.current = { phase, candidates, selectedColumn, activeNeurons, reducedMotion }
+  }, [phase, candidates, selectedColumn, activeNeurons, reducedMotion])
 
   useEffect(() => {
     if (!connectomeEndpoint) return
     const controller = new AbortController()
     loadConnectomeCoordinates(connectomeEndpoint, controller.signal)
-      .then(setRemoteCloud)
+      .then((loaded) => {
+        setCoordinateError(null)
+        setRemoteCloud(loaded)
+      })
       .catch((error: unknown) => {
         if (!(error instanceof DOMException && error.name === 'AbortError')) {
-          console.warn('Using procedural neurons because connectome coordinates are unavailable.', error)
+          console.error('MaleCNS coordinates are unavailable.', error)
           setRemoteCloud(null)
+          setCoordinateError(
+            error instanceof Error ? error.message : 'MaleCNS coordinates unavailable',
+          )
         }
       })
     return () => controller.abort()
@@ -68,7 +77,7 @@ export function BrainVisualization({
 
   useEffect(() => {
     const mount = mountRef.current
-    if (!mount) return
+    if (!mount || !cloud) return
 
     const scene = new THREE.Scene()
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100)
@@ -157,6 +166,19 @@ export function BrainVisualization({
           const color = flash ? CYAN : reward ? AMBER : INACTIVE
           colorAttribute.setXYZ(index, color.r, color.g, color.b)
         }
+        if (cloud.source === 'real-connectome') {
+          const activityColor = state.phase === 'selecting' ? WHITE : AMBER
+          for (const index of state.activeNeurons) {
+            if (index >= 0 && index < count) {
+              colorAttribute.setXYZ(
+                index,
+                activityColor.r,
+                activityColor.g,
+                activityColor.b,
+              )
+            }
+          }
+        }
         colorAttribute.needsUpdate = true
       }
       renderer.render(scene, camera)
@@ -184,7 +206,13 @@ export function BrainVisualization({
       <div ref={mountRef} className="brain-canvas" aria-hidden="true" />
       <div className="brain-label">
         <span className="live-dot" />
-        {cloud.source === 'real-connectome' ? 'REAL CONNECTOME COORDINATES' : 'PROCEDURAL NEURON MAP'}
+        {coordinateError
+          ? 'REAL COORDINATES UNAVAILABLE'
+          : cloud?.source === 'real-connectome'
+            ? `MALECNS · ${(cloud.localizedCount ?? cloud.coordinates.length).toLocaleString()} LOCATED · ${cloud.coordinates.length.toLocaleString()} TOTAL`
+            : connectomeEndpoint
+              ? 'LOADING MALECNS COORDINATES'
+              : 'PROCEDURAL CLASSIC-AI MAP'}
       </div>
       <div className="output-regions" aria-label="Seven column output regions">
         {Array.from({ length: 7 }, (_, column) => {

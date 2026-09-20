@@ -4,6 +4,7 @@ interface GameControlsProps {
   difficulty: Difficulty
   opponent: OpponentMode
   reducedMotion: boolean
+  brainReady: boolean
   hasReplay: boolean
   onDifficulty: (difficulty: Difficulty) => void
   onOpponent: (opponent: OpponentMode) => void
@@ -16,6 +17,7 @@ export function GameControls({
   difficulty,
   opponent,
   reducedMotion,
+  brainReady,
   hasReplay,
   onDifficulty,
   onOpponent,
@@ -38,13 +40,14 @@ export function GameControls({
           onClick={() => onOpponent('connectome')}
           type="button"
         >
-          Fly Brain
+          Fly Brain <small>{brainReady ? 'REAL' : 'OFFLINE'}</small>
         </button>
       </div>
       <label className="select-control">
-        <span>Difficulty</span>
+        <span>{opponent === 'connectome' ? 'Difficulty (Classic only)' : 'Difficulty'}</span>
         <select
           value={difficulty}
+          disabled={opponent === 'connectome'}
           onChange={(event) => onDifficulty(event.target.value as Difficulty)}
         >
           <option value="easy">Easy</option>

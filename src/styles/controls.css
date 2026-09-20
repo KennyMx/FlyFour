@@ -35,6 +35,17 @@
   box-shadow: 0 4px 10px rgba(13, 36, 64, 0.18);
 }
 
+.segmented button small {
+  margin-left: 4px;
+  color: var(--coral);
+  font-size: 0.52rem;
+  letter-spacing: 0.08em;
+}
+
+.segmented button.active small {
+  color: var(--cyan);
+}
+
 .select-control {
   display: flex;
   align-items: center;
@@ -52,6 +63,10 @@
   background: var(--paper);
   font-size: 0.76rem;
   font-weight: 700;
+}
+
+.select-control select:disabled {
+  opacity: 0.5;
 }
 
 .motion-toggle {
