@@ -1,0 +1,15 @@
+{
+  "method": "fixed MaleCNS spiking reservoir + PCA ridge readout",
+  "dataset": "MaleCNS v1.0",
+  "neurons": 166700,
+  "connections": 25088107,
+  "readoutPopulation": "visual_projection + descending_neuron",
+  "readoutNeurons": 10515,
+  "trainingSamples": 409,
+  "validationSamples": 103,
+  "validationTop1Accuracy": 0.3592233009708738,
+  "expertDepth": 4,
+  "simulationSteps": 8,
+  "trainedAt": "2026-09-20T01:28:53.409964+00:00",
+  "flybrainVersion": "0.1.0"
+}
