@@ -8,11 +8,12 @@ from pathlib import Path
 import threading
 import zlib
 
+import joblib
 import numpy as np
-from flybrain import FlyBrain, Readout, Trace
+from flybrain import FlyBrain, Trace
 
 ROOT = Path(__file__).resolve().parent
-DEFAULT_MODEL = ROOT / "models" / "connect_four_readout.npz"
+DEFAULT_MODEL = ROOT / "models" / "connect_four_policy.joblib"
 DEFAULT_METADATA = ROOT / "models" / "connect_four_readout.json"
 
 
@@ -40,22 +41,22 @@ class MaleCNSConnectFour:
         self.brain = FlyBrain(device=device, sensory_input=False, refractory=0.04)
         self.lock = threading.Lock()
         self.input_groups = self._build_input_groups()
-        # Read both visual projection activity (preserves the engineered board
-        # signal) and descending motor commands (captures whole-network mixing).
+        self.projection_neurons = self.brain.cells(["visual_projection"])
+        self.descending_neurons = self.brain.cells(["descending_neuron"])
+        self.input_neurons = np.unique(np.concatenate(self.input_groups))
         self.output_neurons = np.unique(
-            np.concatenate(
-                (
-                    self.brain.cells(["visual_projection"]),
-                    self.brain.cells(["descending_neuron"]),
-                )
-            )
+            np.concatenate((self.projection_neurons, self.descending_neurons))
         )
         if not len(self.output_neurons):
             raise RuntimeError("MaleCNS data contains no readout population")
+        self.trace_neurons = np.unique(
+            np.concatenate((self.input_neurons, self.output_neurons))
+        )
+        self.feature_pools = self._build_feature_pools()
 
         self.model_path = Path(model_path)
         self.metadata_path = Path(metadata_path)
-        self.readout = Readout.load(self.model_path) if self.model_path.exists() else None
+        self.readout = joblib.load(self.model_path) if self.model_path.exists() else None
         self.metadata = (
             json.loads(self.metadata_path.read_text())
             if self.metadata_path.exists()
@@ -83,6 +84,20 @@ class MaleCNSConnectFour:
             for group in np.array_split(bank, 42)
         ]
 
+    def _build_feature_pools(self) -> list[np.ndarray]:
+        """Pool real spike traces into stable sensory and connectome features."""
+        slot = np.full(self.brain.n, -1, dtype=np.int64)
+        slot[self.trace_neurons] = np.arange(len(self.trace_neurons))
+        pools = [slot[group] for group in self.input_groups]
+        rng = np.random.default_rng(166_700)
+        for neurons, count in (
+            (self.projection_neurons, 192),
+            (self.descending_neurons, 64),
+        ):
+            shuffled = rng.permutation(neurons)
+            pools.extend(slot[group] for group in np.array_split(shuffled, count))
+        return [pool[pool >= 0] for pool in pools]
+
     def _injections(self, board: np.ndarray):
         injections = []
         for cell, value in enumerate(board.flat):
@@ -97,7 +112,7 @@ class MaleCNSConnectFour:
         return zlib.crc32(board.tobytes())
 
     def activity(self, board: np.ndarray) -> tuple[np.ndarray, list[int]]:
-        trace = Trace(self.brain, idx=self.output_neurons, tau=0.16)
+        trace = Trace(self.brain, idx=self.trace_neurons, tau=0.16)
         active: set[int] = set()
         self.brain.reset(self._seed_for(board))
         injections = self._injections(board)
@@ -106,7 +121,12 @@ class MaleCNSConnectFour:
             trace.observe(fired)
             if len(active) < 8_000:
                 active.update(int(index) for index in fired[: 8_000 - len(active)])
-        return trace.features(), sorted(active)
+        raw = trace.features()
+        features = np.asarray(
+            [float(raw[pool].mean()) if len(pool) else 0.0 for pool in self.feature_pools],
+            dtype=np.float32,
+        )
+        return features, sorted(active)
 
     def decide(self, board_values: list[int]) -> dict:
         if self.readout is None:
@@ -117,7 +137,9 @@ class MaleCNSConnectFour:
             raise ValueError("the board has no legal columns")
         with self.lock:
             features, active = self.activity(board)
-            scores = np.asarray(self.readout.predict(features), dtype=np.float64)
+            probabilities = self._policy_probabilities(features)
+            scores = np.zeros(7, dtype=np.float64)
+            scores[:] = probabilities
         masked = np.full(7, -np.inf)
         masked[legal] = scores[legal]
         selected = int(np.argmax(masked))
@@ -132,6 +154,41 @@ class MaleCNSConnectFour:
             "source": "malecns-v1.0-trained-readout",
             "simulationSteps": self.simulation_steps,
         }
+
+    def _policy_probabilities(self, features: np.ndarray) -> np.ndarray:
+        if not isinstance(self.readout, dict):
+            raw = self.readout.predict_proba(features[None])[0]
+            scores = np.zeros(7, dtype=np.float64)
+            scores[np.asarray(self.readout.classes_, dtype=np.int64)] = raw
+            return scores
+
+        sensory = self.readout["policy"].predict_proba(features[None, :84])[0]
+        connectome = self.readout["connectome_policy"].predict_proba(features[None])[0]
+        sensory_weight = float(self.readout.get("sensory_weight", 0.7))
+        scores = sensory_weight * sensory + (1 - sensory_weight) * connectome
+
+        detector = self.readout["tactical_detector"].predict_proba(
+            features[None, :84]
+        )[0]
+        detector_classes = self.readout["tactical_detector"].classes_
+        tactical_confidence = max(
+            (
+                probability
+                for label, probability in zip(
+                    detector_classes, detector, strict=True
+                )
+                if label != 0
+            ),
+            default=0.0,
+        )
+        if tactical_confidence >= float(
+            self.readout.get("tactical_threshold", 0.15)
+        ):
+            tactical = self.readout["tactical_policy"]
+            raw = tactical.predict_proba(features[None, :84])[0]
+            scores = np.zeros(7, dtype=np.float64)
+            scores[np.asarray(tactical.classes_, dtype=np.int64)] = raw
+        return scores
 
     def coordinates(self) -> tuple[np.ndarray, int]:
         if self.brain.positions is None:
@@ -162,6 +219,7 @@ class MaleCNSConnectFour:
             "connections": int(len(self.brain.weights)),
             "inputNeurons": int(sum(map(len, self.input_groups))),
             "readoutNeurons": int(len(self.output_neurons)),
+            "policyFeatures": int(len(self.feature_pools)),
             "device": self.brain.device,
             "model": self.metadata,
         }

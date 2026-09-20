@@ -16,6 +16,7 @@ dist-ssr
 __pycache__
 *.pyc
 backend/models/rewards.jsonl
+backend/models/training_cache*.npz
 
 # Editor directories and files
 .vscode/*
