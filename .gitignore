@@ -11,6 +11,11 @@ node_modules
 dist
 dist-ssr
 *.local
+.venv
+.fly-data
+__pycache__
+*.pyc
+backend/models/rewards.jsonl
 
 # Editor directories and files
 .vscode/*
