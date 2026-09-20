@@ -1,198 +1,126 @@
 # Fly Four
 
-A polished Connect Four game where you play against a simulated fruit-fly brain. The game is fully playable offline with a reliable minimax opponent and a procedural, GPU-rendered neural visualization. An adapter can optionally connect it to a service built around [`fly-api`](https://github.com/dtch1997/fly-api) or [`FlyBrain`](https://github.com/Jhongdlp/FlyBrain).
+Connect Four against a trained readout of the real **MaleCNS v1.0 fruit-fly connectome**.
 
-## Features
+Fly Brain mode runs a leaky integrate-and-fire simulation containing 166,700 neurons and approximately 25 million measured connections. Board positions stimulate real visual neurons, activity propagates through the fixed connectome, and a trained readout converts activity from visual-projection and descending neurons into scores for the seven columns.
 
-- Complete 7 × 6 Connect Four rules, win detection, draws, and input locking
-- Three minimax difficulty levels with alpha-beta pruning and controlled randomness
-- Mouse, touch, and keyboard controls (arrow keys plus Enter/Space)
-- Animated falling pieces, winning-cell pulses, and responsive column selection
-- Friendly fly mascot with idle, thinking, selecting, winning, losing, and draw states
-- Three.js point-cloud renderer with thousands of visible procedural neurons
-- Cyan sensory waves, amber evaluation activity, white selection pathways, and seven outputs
-- Optional real-neuron coordinate loading with one GPU point per coordinate
-- Responsive 60/40 desktop layout and stacked mobile layout
-- Reduced-motion setting plus automatic operating-system preference detection
-- Structured decision logs and downloadable replay JSON
-- 12 automated tests covering game rules and AI decisions
+There is no minimax fallback in Fly Brain mode. If the connectome, trained readout, or Python service is unavailable, the game reports that the brain is offline and does not substitute a conventional AI move.
 
-## Quick start
+## Run the complete game
 
-Requires Node.js 20 or newer.
+Requires Node.js 20+ and Python 3.11+.
 
 ```bash
 npm install
-npm run dev
+npm run brain:setup
+npm run brain:train
+npm run dev:full
 ```
 
-Open the local URL printed by Vite. The app needs no backend in its default configuration.
+`brain:setup` installs [`flybrain`](https://pypi.org/project/flybrain/) and downloads its checksum-verified MaleCNS files (about 260 MB) into `.fly-data/`. The source dataset is the official [MaleCNS v1.0 release](https://male-cns.janelia.org/download/). These large files are intentionally not committed.
 
-Other commands:
+The trained model is already included in `backend/models/`, so retraining is optional after cloning. Run `brain:train` when you want to reproduce or replace it.
+
+The web app runs at `http://localhost:5173`; the brain API runs at `http://127.0.0.1:8000`.
+
+## What “trained” means
+
+The biological connection matrix stays frozen.
+
+1. Legal Connect Four positions are generated.
+2. Each of the 42 board cells is assigned to visual-neuron populations. Separate visual channels represent human and fly pieces.
+3. The board repeatedly stimulates those 6,006 input neurons.
+4. Spikes propagate through all 166,700 neurons using the MaleCNS synaptic graph.
+5. Exponentially decaying activity from visual-projection and descending neurons becomes the reservoir feature vector.
+6. A depth-four Connect Four expert supplies supervised score labels during offline training.
+7. PCA plus ridge regression learns the only trainable component: a seven-output decoder.
+
+At runtime, only the board encoder, fixed MaleCNS simulation, and learned decoder run. The expert/minimax code is not called.
+
+Training is reproducible:
 
 ```bash
-npm test          # run all Vitest tests
-npm run test:watch
-npm run lint      # run oxlint
-npm run build     # type-check and create a production build
-npm run preview   # serve the production build locally
+FLY_TRAIN_SAMPLES=512 npm run brain:train
 ```
+
+Model metadata records the training size, validation agreement, population, simulation steps, package version, and timestamp.
 
 ## Architecture
 
 ```text
+backend/
+├── app.py                 FastAPI service: health, coordinates, decisions, rewards
+├── brain.py               MaleCNS encoder, simulation, spike trace, trained readout
+├── connect_four.py        Position generator and offline expert labels
+├── train.py               Reproducible reservoir-readout training
+└── models/                Trained readout and provenance metadata
+
 src/
 ├── components/
-│   ├── BrainVisualization.tsx  Three.js point cloud and sampled pathways
-│   ├── FlyMascot.tsx           Stateful SVG mascot
-│   ├── GameBoard.tsx           Accessible board input and rendering
-│   └── GameControls.tsx        Opponent, difficulty, motion, replay controls
+│   ├── BrainVisualization.tsx  GPU point cloud for every real neuron
+│   ├── FlyMascot.tsx
+│   ├── GameBoard.tsx
+│   └── GameControls.tsx
 ├── game/
-│   ├── engine.ts               Pure board rules and board encoding
-│   ├── ai.ts                   Minimax Classic AI adapter
-│   ├── connectome.ts           Optional HTTP connectome adapter
-│   └── types.ts                Shared contracts and replay schema
-├── hooks/useFlyFour.ts         Turn timing, state machine, logs, and results
-├── visualization/neuronData.ts Coordinate loading and procedural fallback
-└── styles/                     Modular responsive visual system
+│   ├── connectome.ts      Strict MaleCNS HTTP adapter; no fallback
+│   ├── ai.ts              Optional, explicitly selected Classic AI
+│   └── engine.ts
+└── hooks/
+    ├── useBrainStatus.ts
+    └── useFlyFour.ts
 ```
 
-All opponent implementations sit behind `FlyBrainAdapter`:
+### Brain API
 
-```ts
-interface FlyBrainAdapter {
-  readonly name: string
-  decide(context: DecisionContext): Promise<BrainDecision>
-}
-```
+- `GET /health` reports whether real data and a trained model are loaded, plus neuron/connection counts and training provenance.
+- `GET /neurons` returns all 166,700 MaleCNS neurons. The release metadata provides
+  140,638 finite centroid coordinates; the API reports that count and places the
+  remaining 26,062 unlocalized real neurons in a visibly peripheral layout.
+- `POST /decide` runs the actual spiking simulation and returns seven learned scores, a selected legal column, and the indices of neurons that fired.
+- `POST /reward` records completed-game outcomes in a local JSONL log.
 
-This keeps rules and UI independent of whether a move comes from minimax or a connectome-backed service.
+The frontend illuminates returned firing indices in the real coordinate cloud. It renders all neurons as a single GPU point cloud, while showing only a bounded set of pathways.
 
-## Optional connectome backend
+## Classic AI
 
-Copy the example environment file and point it to a bridge service:
-
-```bash
-cp .env.example .env.local
-```
-
-```env
-VITE_FLY_BRAIN_URL=http://localhost:8000
-```
-
-The bridge has two small HTTP contracts.
-
-### `POST /decide`
-
-Request:
-
-```json
-{
-  "board": [0, 0, 0, 1, -1],
-  "shape": [6, 7],
-  "legalColumns": [0, 1, 2, 4, 5, 6],
-  "difficulty": "medium"
-}
-```
-
-The complete `board` array always contains 42 row-major values: `1` for the human, `-1` for the fly, and `0` for empty.
-
-Response:
-
-```json
-{
-  "selectedColumn": 4,
-  "candidateScores": [0.1, 0.2, -0.4, 0, 0.8, 0.3, 0.1],
-  "neuralResponse": [0.02, 0.61, 0.14]
-}
-```
-
-The selected column must be legal. Network errors, malformed responses, and illegal moves fall back safely to Classic AI and are labeled `connectome-fallback` in logs.
-
-### `GET /neurons`
-
-Return either an array or `{ "neurons": [...] }`:
-
-```json
-[
-  { "x": 12.4, "y": -8.1, "z": 2.3 },
-  { "x": 12.8, "y": -7.7, "z": 2.1 }
-]
-```
-
-Every valid coordinate is placed in a single GPU point-cloud draw call. This supports large datasets such as MaleCNS (roughly 165,000 neurons). Fly Four deliberately renders only sampled activity pathways rather than every synapse, because rendering all connections would overwhelm both the display and typical client hardware.
-
-Backend-specific dataset loading and neural simulation belong in the bridge service. This repository does not vendor biological datasets.
-
-## Decision logs and replays
-
-Each fly turn logs:
-
-- 42-value board encoding
-- adapter source
-- neural response
-- score for every legal candidate column
-- selected column
-- terminal reward (`1`, `-1`, or `0`) when applicable
-
-“Export replay” downloads a versioned JSON document containing settings, moves, decisions, final result, and the scientific disclosure. Moves are replayable in timestamp order.
+Classic AI remains as a separately labeled comparison mode because the original project specification requested a reliable minimax opponent. It is never invoked by Fly Brain mode. Select it explicitly if you want conventional difficulty levels and controlled randomness.
 
 ## Scientific limitations
 
-**A biological fruit fly does not naturally understand or play Connect Four.**
+A fruit fly does not naturally understand Connect Four.
 
-When a backend and real data are configured, the neuron coordinates and wiring can come from an actual connectome. The following parts are still engineered:
+Real biological components:
 
-- conversion of a 6 × 7 board into neural input
-- neuron activation and timing dynamics
-- evaluation and reward signals
-- mapping activity to seven output columns
-- training or calibration that makes those outputs useful for this game
+- MaleCNS v1.0 neuron identities and positions
+- approximately 25 million measured neuron-to-neuron connections
+- neurotransmitter-signed, normalized connectivity supplied by `flybrain`
+- spikes propagated through the complete fixed network
 
-The UI labels real coordinate data as **REAL CONNECTOME COORDINATES**. Without a coordinate backend, it labels the display **PROCEDURAL NEURON MAP**. The procedural visualization is inspired by bilateral fly-brain anatomy, but it is not experimental biological data. “Fly Brain” describes the optional adapter mode, not evidence that a fly connectome inherently performs symbolic game reasoning.
+Engineered components:
 
-## Accessibility and performance
+- mapping 42 board cells and two piece identities onto visual neurons
+- leaky integrate-and-fire parameters and simulation duration
+- expert-generated Connect Four training labels
+- PCA/ridge seven-column decoder
+- reward logging and the game interface
 
-- The board remains visible while the fly thinks.
-- Player input is disabled during fly turns and after a result.
-- Each column is a keyboard-focusable control with grid semantics and useful labels.
-- Reduced motion disables nonessential transitions and honors `prefers-reduced-motion`.
-- Three.js loads as a separate lazy chunk.
-- Neurons use a `BufferGeometry` point cloud; connections are a bounded changing sample.
-- Device pixel ratio is capped to avoid excessive fill cost on high-density displays.
+This is reservoir computing over genuine connectome wiring—not evidence that an unmodified biological fly understands symbolic games. The app exposes model provenance and labels real versus procedural visualization data.
 
-## License
+## Other commands
 
-No license has been selected yet. Add one before redistributing the project.
-# React + TypeScript + Vite
-
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm test
+npm run brain:test
+npm run lint
+npm run build
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+To use another backend URL:
+
+```env
+VITE_FLY_BRAIN_URL=http://127.0.0.1:8000
+```
+
+## Data attribution
+
+MaleCNS v1.0 is produced by FlyEM at HHMI Janelia and collaborators. See the [official project page](https://male-cns.janelia.org/) and [download documentation](https://male-cns.janelia.org/download/) for dataset details, releases, and attribution requirements.
