@@ -45,26 +45,26 @@ export function BrainVisualization({
   const mountRef = useRef<HTMLDivElement>(null)
   const live = useRef({ phase, candidates, selectedColumn, reducedMotion })
   const procedural = useMemo(() => createProceduralFlyBrain(), [])
-  const [cloud, setCloud] = useState<NeuronCloud>(procedural)
-
-  live.current = { phase, candidates, selectedColumn, reducedMotion }
+  const [remoteCloud, setRemoteCloud] = useState<NeuronCloud | null>(null)
+  const cloud = connectomeEndpoint ? (remoteCloud ?? procedural) : procedural
 
   useEffect(() => {
-    if (!connectomeEndpoint) {
-      setCloud(procedural)
-      return
-    }
+    live.current = { phase, candidates, selectedColumn, reducedMotion }
+  }, [phase, candidates, selectedColumn, reducedMotion])
+
+  useEffect(() => {
+    if (!connectomeEndpoint) return
     const controller = new AbortController()
     loadConnectomeCoordinates(connectomeEndpoint, controller.signal)
-      .then(setCloud)
+      .then(setRemoteCloud)
       .catch((error: unknown) => {
         if (!(error instanceof DOMException && error.name === 'AbortError')) {
           console.warn('Using procedural neurons because connectome coordinates are unavailable.', error)
-          setCloud(procedural)
+          setRemoteCloud(null)
         }
       })
     return () => controller.abort()
-  }, [connectomeEndpoint, procedural])
+  }, [connectomeEndpoint])
 
   useEffect(() => {
     const mount = mountRef.current
