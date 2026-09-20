@@ -2,6 +2,8 @@
 
 ## [Open the public Fly Four site →](https://kennymx.github.io/FlyFour/)
 
+[![Fly Four interface showing a completed game and the MaleCNS neuron visualization](docs/demo/final.jpg)](https://kennymx.github.io/FlyFour/)
+
 The GitHub Pages interface is public and works without a GitHub account. Playing
 against the MaleCNS brain requires the Python backend described below; GitHub
 Pages hosts the static interface only.
